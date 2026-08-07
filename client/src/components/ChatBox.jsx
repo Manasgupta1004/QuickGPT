@@ -7,6 +7,7 @@ const ChatBox = () => {
   const { selectedChat, theme } = useAppContext()
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
+  //console.log(Message);
 
   useEffect(() => {
     if (selectedChat) {
@@ -26,9 +27,10 @@ const ChatBox = () => {
         )}
       </div>
       {messages.map((message, index) => {
-        console.log("Rendering Message", message);
+       // console.log("Rendering Message", message);
         return (
           <Message key={index} message={message} />
+         // Message({ message })
         )
       })}
       {/* prompt input box */}
