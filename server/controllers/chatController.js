@@ -1,4 +1,4 @@
-import chat from "../models/chats"
+import chat from "../models/chats.js"
 
 
 // APi controller for creating a new chat
@@ -23,7 +23,7 @@ export const createChat = async (req, res) => {
 
 // API controller for getting al chats
 
-export const getChats = (req, res) => {
+export const getChats = async (req, res) => {
     try {
         const userId = req.user._id
         const chats = await chat.find({ userId }).sort({ updatedAt: -1 })
@@ -36,7 +36,7 @@ export const getChats = (req, res) => {
 
 // API controller fro deleting chats
 
-export const deleteChats = (req, res) => {
+export const deleteChats = async (req, res) => {
     try {
         const userId = req.user._id
         const { chatId } = req.body
@@ -47,3 +47,4 @@ export const deleteChats = (req, res) => {
         res.json({ success: false, message: error })
     }
 }
+
