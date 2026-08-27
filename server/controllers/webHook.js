@@ -23,10 +23,10 @@ export const stripeWebHooks = async (req, res) => {
                 const session = sessionList.data[0]
                 const { transactionId, appId } = session.metadata;
                 if (appId === 'QuickGPT') {
-                    const transaction = await Transaction.findOne({ _id: transactionId, isPaid: flase })
+                    const transaction = await Transaction.findOne({ _id: transactionId, isPaid: false })
                     // update credit in user account
                     await User.updateOne({ _id: transaction.userId }, {
-                        $INC: {
+                        $inc: {
                             credits: transaction.credits
                         }
                     })
