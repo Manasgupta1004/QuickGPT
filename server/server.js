@@ -8,10 +8,11 @@ import aiRouter from './routes/aiuRoute.js'
 import creditRouter from './routes/creditRoute.js'
 import { stripeWebHooks } from './controllers/webHook.js'
 const app = express()
-app.use(express.json())
+
 await connectDB()
 // stripe webhook
 app.post('/api/stripe', express.raw({ type: 'application/json' }), stripeWebHooks)
+app.use(express.json())
 
 const PORT = process.env.PORT || 3000
 
