@@ -8,28 +8,38 @@ import Loading from './pages/Loading'
 import Login from './pages/Login'
 import { assets } from './assets/assets'
 import './assets/prism.css'
+import { useAppContext } from './context/AppContext'
+import {Toaster} from 'react-hot-toast'
 
 const App = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(true)
   const { pathname } = useLocation()
+  const {user} = useAppContext()
 
   if (pathname === '/loading') return <Loading />
   return (
     <>
+    <Toaster>
       {!isMenuOpen && <img onClick={() => setIsMenuOpen(true)}
         className='absolute top-3 left-3 w-8 g-8 cursor-pointer md:hidden not-dark:invert'
         src={assets.menu_icon} />}
-      <div className='dark:bg-gradient-to-b from-[#242124] to-[#000000] dark:text-white'>
+      {user ? (
+        <div className='dark:bg-gradient-to-b from-[#242124] to-[#000000] dark:text-white'>
         <div className="flex h-screen w-screen">
           {isMenuOpen && < SideBar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />}
           <Routes>
             <Route path="/" element={<ChatBox />} />
             <Route path="/credits" element={<Creadit />} />
             <Route path="/community" element={<Community />} />
-            <Route path="/login" element={<Login />} />
           </Routes>
         </div>
       </div>
+      ): (
+        <div className='bg-gradient-to-b from-[#242124] to-[#000000] flex items-center justify-center h-screen w-screen'>
+          <Login/>
+        </div>
+      )}
+     </Toaster> 
     </>
   )
 }
