@@ -2,49 +2,131 @@ import Stripe from "stripe";
 import Transaction from "../models/transaction.js";
 import User from '../models/user.js'
 
+// export const stripeWebHooks = async (req, res) => {
+//     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+//     const sig = req.headers['stripe-signature']
+//     let event
+
+//     try {
+//         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+//     } catch (error) {
+//         return res.status(400).send(`webhook error: ${error.message}`)
+//     }
+
+//     try {
+//         switch (event.type) {
+//             case "payment_intent.succeeded": {
+//                 const paymentIntent = event.data.object
+//                 const sessionList = await stripe.checkout.sessions.list({
+//                     payment_intent: paymentIntent.id,
+//                 })
+//                 const session = sessionList.data[0]
+//                 const { transactionId, appId } = session.metadata;
+//                 if (appId === 'QuickGPT') {
+//                     const transaction = await Transaction.findOne({ _id: transactionId, isPaid: false })
+//                     // update credit in user account
+//                     await User.updateOne({ _id: transaction.userId }, {
+//                         $inc: {
+//                             credits: transaction.credits
+//                         }
+//                     })
+//                     // update credit payment status
+//                     transaction.isPaid = true;
+//                     await transaction.save()
+//                 } else {
+//                     return res.json({ recevied: true, message: 'ignore event: Invalid app' })
+//                 }
+//                 break
+//             }
+//             default:
+//                 console.log("Unhandled event Type:", event.type)
+//                 break
+//         }
+//         res.json({ recevied: true })
+//     } catch (error) {
+//         console.error("webhook processing error:", error)
+//         res.status(500).send("Internal Server Error")
+//     }
+// }
+
 export const stripeWebHooks = async (req, res) => {
+
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
     const sig = req.headers['stripe-signature']
+
     let event
 
     try {
-        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+        event = stripe.webhooks.constructEvent(
+            req.body,
+            sig,
+            process.env.STRIPE_WEBHOOK_SECRET
+        )
     } catch (error) {
-        return res.status(400).send(`webhook error: ${error.message}`)
+        console.log("SIGNATURE ERROR:", error.message)
+        return res.status(400).send(`Webhook Error: ${error.message}`)
     }
 
     try {
+
         switch (event.type) {
-            case "payment_intent.succeeded": {
-                const paymentIntent = event.data.object
-                const sessionList = await stripe.checkout.sessions.list({
-                    payment_intent: paymentIntent.id,
+
+            case "checkout.session.completed": {
+
+                const session = event.data.object
+
+                console.log("CHECKOUT SESSION:", session.id)
+                console.log("METADATA:", session.metadata)
+
+                const { transactionId, appId } = session.metadata
+
+                if (appId !== "QuickGPT") {
+                    console.log("Invalid app")
+                    break
+                }
+
+                const transaction = await Transaction.findOne({
+                    _id: transactionId,
+                    isPaid: false
                 })
-                const session = sessionList.data[0]
-                const { transactionId, appId } = session.metadata;
-                if (appId === 'QuickGPT') {
-                    const transaction = await Transaction.findOne({ _id: transactionId, isPaid: false })
-                    // update credit in user account
-                    await User.updateOne({ _id: transaction.userId }, {
+
+                if (!transaction) {
+                    console.log("Transaction not found or already paid")
+                    break
+                }
+
+                // Add credits
+                await User.updateOne(
+                    { _id: transaction.userId },
+                    {
                         $inc: {
                             credits: transaction.credits
                         }
-                    })
-                    // update credit payment status
-                    transaction.isPaid = true;
-                    await transaction.save()
-                } else {
-                    return res.json({ recevied: true, message: 'ignore event: Invalid app' })
-                }
+                    }
+                )
+
+                // Mark transaction as paid
+                transaction.isPaid = true
+
+                await transaction.save()
+
+                console.log("PAYMENT SUCCESS")
+                console.log("TRANSACTION UPDATED:", transaction._id)
+
                 break
             }
+
             default:
-                console.log("Unhandled event Type:", event.type)
-                break
+                console.log("Unhandled event:", event.type)
         }
-        res.json({ recevied: true })
+
+        res.json({ received: true })
+
     } catch (error) {
-        console.error("webhook processing error:", error)
+
+        console.error("WEBHOOK PROCESSING ERROR:", error)
+
         res.status(500).send("Internal Server Error")
     }
 }
