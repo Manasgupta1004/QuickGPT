@@ -1,8 +1,6 @@
 import openai from "../configs/openAi.js"
 import Chat from "../models/chats.js"
 import User from '../models/user.js'
-import axios from 'axios'
-import imagekit from "../configs/imageKit.js"
 
 
 // Text based AI chat messsage controller
@@ -16,18 +14,12 @@ export const textMessageController = async (req, res) => {
         }
 
         const chat = await Chat.findOne({ _id: chatId, userId })
-        // console.log("USER ID:", userId)
-        // console.log("CHAT ID:", chatId)
-        // console.log("CHAT:", chat)
+    
         chat.messages.push({ role: "user", content: prompt, timestamp: Date.now(), isImage: false })
 
         const { choices } = await openai.chat.completions.create({
             model: "gemini-3.6-flash",
             messages: [
-                // {
-                //     role: "system",
-                //     content: "You are a helpful assistant."
-                // },
                 {
                     role: "user",
                     content: prompt,
@@ -46,55 +38,97 @@ export const textMessageController = async (req, res) => {
 
 // image generation message controller
 
-export const imageMessageContoller = async (req, res) => {
+export const imageMessageController = async (req, res) => {
     try {
         const userId = req.user._id
         const { chatId, prompt, isPublished } = req.body
 
-        //check credit
+        // Check credits
         if (req.user.credits < 2) {
-            return res.json({ success: false, message: "You don't have enough credits to use this feature" })
+            return res.json({
+                success: false,
+                message: "You don't have enough credits to use this feature"
+            })
         }
-        const chat = await Chat.findOne({ _id: chatId, userId })
-        chat.messages.push({ role: "user", content: prompt, timestamp: Date.now(), isImage: false })
 
-        // encode the prompt
-        const encodedPrompt = encodeURIComponent(prompt)
-
-        // construct ImageKit AI generation URL
-        const generatedImageUrl = `${process.env.IMAGEKIT_ENDPOINT}/ik-genimg-prompt-${encodedPrompt}/quickgpt/${Date.now()}.png?tr=w-800,h-800`
-
-        // Trigger generating by fecting from ImageKit
-      //  console.log("STEP 1")
-        const aiImageResponse = await axios.get(generatedImageUrl, { responseType: 'arraybuffer' })
-
-        //conver to base64
-        const base64Image = `data:image/png;base64,${Buffer.from(aiImageResponse.data, "binary").toString('base64')}`
-     //   console.log("STEP 2 - IMAGE GENERATED")
-        //upload to Imagekit media library
-        const uploadResponse = await imagekit.files.upload({
-            file: base64Image,
-            fileName: `${Date.now()}.png`,
-            folder: 'quickgpt'
+        // Find chat
+        const chat = await Chat.findOne({
+            _id: chatId,
+            userId
         })
+
+        if (!chat) {
+            return res.json({
+                success: false,
+                message: "Chat not found"
+            })
+        }
+
+        // Save user's message
+        chat.messages.push({
+            role: "user",
+            content: prompt,
+            timestamp: Date.now(),
+            isImage: false
+        })
+
+        // Generate image using Gemini
+        const image = await openai.images.generate({
+            model: "gemini-2.5-flash-image",
+            prompt: prompt,
+            n: 1,
+            response_format: "b64_json"
+        })
+
+        console.log("IMAGE GENERATED")
+
+        // Get base64 image
+        const base64Image = image.data?.[0]?.b64_json
+
+        if (!base64Image) {
+            return res.json({
+                success: false,
+                message: "Gemini did not return an image"
+            })
+        }
+
+        // Create image URL for frontend
+        const imageUrl =
+            `data:image/png;base64,${base64Image}`
+
+        // Assistant reply
         const reply = {
             role: "assistant",
-            content: uploadResponse.url,
+            content: imageUrl,
             timestamp: Date.now(),
             isImage: true,
             isPublished
         }
-      //  console.log("STEP 3 - IMAGE UPLOADED")
 
+        // Save assistant message
         chat.messages.push(reply)
+
+        // Save chat
         await chat.save()
-        await User.updateOne({ _id: userId }, { $inc: { credits: -2 } })
-        return res.json({ success: true, reply })
+
+        // Deduct 2 credits
+        await User.updateOne(
+            { _id: userId },
+            { $inc: { credits: -2 } }
+        )
+
+        return res.json({
+            success: true,
+            reply
+        })
 
     } catch (error) {
-        console.log("FULL ERROR:", error)
-        console.log("ERROR MESSAGE:", error.message)
 
-        return res.json({ success: false, message: error.message })
+        console.log("IMAGE ERROR:", error)
+
+        return res.json({
+            success: false,
+            message: error.message
+        })
     }
 }

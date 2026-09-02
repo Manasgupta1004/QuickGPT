@@ -11,10 +11,10 @@ const Message = ({ message }) => {
 
   useEffect(() => {
     Prism.highlightAll()
-  }, [message.content])
+  }, [message?.content])
   return (
     <div>
-      {message.role === 'user' ? (
+      {message?.role === 'user' ? (
         <div className='flex items-center justify-end my-4 gap-2'>
           <div className='flex flex-col max-w-100 gap-2 p-2 px-4 bg-slate-50 dark:bg-[#57317C]/30 border border-[#80609F]/30 rounded-md'>
             <p className='text-sm dark:text-primary'>
@@ -26,11 +26,11 @@ const Message = ({ message }) => {
         </div>
       ) : (
         <div className='inline-flex flex-col gap-2 p-2 px-4 max-w-2xl bg-primary/20 dark:bg-[#57317C]/30 border border-[#80609F]/30 rounded-md my-4'>
-          {message.isImage ? (
+          {message?.isImage ? (
             <img src={message.content} alt="" className='w-full max-w-md mt-2' />
           ) : (
             <div className='text-sm dark:text-primary reset-tw'>
-              <Markdown>{message.content}</Markdown>
+              <Markdown>{message?.content}</Markdown>
             </div>
           )}
           <span className='text-sm text-gray-400 dark:text-[#B1A6C0]'>{moment(message.timestamp).fromNow()}</span>
